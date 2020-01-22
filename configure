@@ -292,7 +292,7 @@ my %libs_dependencies = (
     gd => ['fontconfig', 'freetype', 'imagemagick', 'imagequant', 'jpeg', 'png', 'webp', 'tiff', 'zlib'],
     #harfbuzz => ['glib']   # circular - with freetype / fontconfig
     imagemagick => ['fontconfig', 'freetype', 'jpeg', 'png', 'webp', 'tiff', 'xml2', 'bzip2', 'zlib'], 
-    pcre => ['bzip2', 'zlib'],
+    pcre => ['zlib'],
     png => ['zlib'],
     sdl => [], # lots of libraries for video / audio
     tiff => ['jpeg', 'zlib', 'xz'], # 'lzma', 'jbigkit' xz? (=lcma2)
