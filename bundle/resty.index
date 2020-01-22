@@ -3282,8 +3282,6 @@ module array-var-nginx-module-0.05
   section 10628 12080 copyright & license
   section 12080 12316 see also
 
-dist bzip2-1.0.6
-
 dist drizzle-nginx-module-0.1.11
   aliases ngx_drizzle ngx_http_drizzle_module
   modules drizzle-nginx-module-0.1.11

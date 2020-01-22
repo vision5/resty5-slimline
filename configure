@@ -266,7 +266,6 @@ my @lua_resty_libs = (
 );
 
 my @c_libs = (
-    'bzip2',
     'openssl',
     'pcre',
     'zlib',
@@ -307,8 +306,9 @@ my %libs_dependencies_optional = (
                     'lqr', 'lzma', 'openexr', 'openjp2', 'pango', 'raqm', 'raw_r', 'wmf', 'x11'],
 );    
 
-my %libs_autoconf = (
+my %libs_autoreconf = (
     glib => 1,
+    pcre => 1,
     xml2 => 1,
 );
 
@@ -885,10 +885,8 @@ for my $opt (@ARGV) {
             $conf = 'configure';
         }
         
-        if ($libs_autoconf{$lib} && ! -f "$lib_src/$conf") {
-            chdir $lib_src;
-            shell 'autoreconf --install';
-            chdir '../..';
+        if ($libs_autoreconf{$lib} && ! -f "$lib_src/$conf") {
+            shell "cd $lib_src && autoreconf -f -i";
         }
         shell "$lib_src/$conf --help";
         exit;
@@ -1484,8 +1482,8 @@ sub build_c_lib_opts {
     
     # Autoconf
     
-    if ($libs_autoconf{$lib}) {
-        shell "autoreconf --install", $dry_run;
+    if ($libs_autoreconf{$lib}) {
+        shell "autoreconf -f -i", $dry_run;
     }
     
     # Configure

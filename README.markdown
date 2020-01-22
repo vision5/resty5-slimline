@@ -13,6 +13,7 @@ Table of Contents
 * [Differences in the ./configure script](#differences-in-the-configure-script)
 * [Version features](#version-features)
 * [Status](#status)
+* [Usage](#usage)
 * [Documentation](#documentation)
 * [Report Bugs](#report-bugs)
 * [TODO](#todo)
@@ -64,7 +65,7 @@ This bundle includes:
 
 - All the OpenResty components
 - Almost all the lua-resty-*** modules available on Github
-- The latest sources for bzip, openssl, pcre and zlib
+- The latest sources for OpenSSL, PCRE and Zlib
 
 When Resty5 is compiled, by default the supplied sources are used rather than the system libraries
 as shared libraries that are loaded at run time.
@@ -72,7 +73,22 @@ as shared libraries that are loaded at run time.
 Status
 ======
 
-- The OpenResty code and the bundled libraries for the slimline version are production-ready.
+- The OpenResty code and the bundled external libraries are production-ready
+- Most of the lua-resty-*** modules are also production-ready, but Github will confirm this for each module
+
+[Back to TOC](#table-of-contents)
+
+Usage
+======
+
+```
+./configure [options]
+make
+make install
+```
+
+- Configure also compiles the shared libraries, so can take some time to complete
+- You may need to do `sudo make install`, depending on where you are installing and the permissions of the user
 
 [Back to TOC](#table-of-contents)
 
