@@ -117,7 +117,9 @@ https://github.com/vision5/resty5-slimline/issues
 TODO
 ====
 
-- Update this README
+- Add details on configuration options
+- Look for more lua-resty-xxx modules to include
+- Test all the lua-resty-xxx modules
 
 [Back to TOC](#table-of-contents)
 
@@ -126,8 +128,8 @@ Copyright & License
 
 The bundle itself is licensed under the 2-clause BSD license.
 
-(Resty5) Copyright (c) 2019-20, Vision5 <contact@5.vision> 
-(OpenResty) Copyright (c) 2011-2020, Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, OpenResty Inc.
+* (Resty5) Copyright (c) 2019-20, Vision5 <contact@5.vision> 
+* (OpenResty) Copyright (c) 2011-2020, Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, OpenResty Inc.
 
 This module is licensed under the terms of the BSD license.
 
