@@ -1,0 +1,211 @@
+=encoding utf-8
+
+
+=head1 lua-resty-ceph
+
+
+A simple Lua wrapper for ceph with swift based on OpenResty.
+
+More: 
+
+
+=over
+
+
+=item 1.
+
+E<lt>http://docs.ceph.org.cn/radosgw/s3/E<gt>
+
+=item 2.
+
+E<lt>http://docs.ceph.org.cn/radosgw/swift/E<gt>
+
+
+=back
+
+
+=head1 API
+
+
+
+=over
+
+
+=item *
+
+L<new>
+
+=item *
+
+L<get_all_buckets>
+
+=item *
+
+L<create_bucket>
+
+=item *
+
+L<del_bucket>
+
+=item *
+
+L<get_all_buckets>
+
+=item *
+
+L<get_all_objs>
+
+=item *
+
+L<get_buckets_location>
+
+=item *
+
+L<get_buckets_acl>
+
+=item *
+
+L<create_obj>
+
+=item *
+
+L<get_obj>
+
+=item *
+
+L<del_obj>
+
+=item *
+
+L<check_for_existance>
+
+=item *
+
+L<get_obj_acl>
+
+=item *
+
+L<set_obj_acl>
+
+
+=back
+
+
+=head2 Synopsis
+
+
+
+    function swiftrun()
+    
+        bucket = ngx.var.arg_b
+        file = ngx.var.arg_f
+        content = ngx.var.arg_c
+        del = ngx.var.arg_d
+        local cephswift = require("resty.cephswift")
+        app = cephswift:new(config.swift_user, config.swift_secret_key, config.auth_uri)
+        -- app:create_bucket(bucket)
+        -- app:get_all_objs(bucket)
+        if content then
+            local url = app:create_obj(bucket, file, content)
+            ngx.say(url)
+        end
+    
+        if file then
+            local data = app:get_obj(bucket, file)
+            ngx.say(data)
+            -- app:del_obj(bucket, file)
+        end
+    
+        if del == "y" then
+            local res = app:del_bucket(bucket)
+    
+        end
+    end
+    
+
+
+=head1 Usage
+
+
+
+=head2 new
+
+
+    local app = cephs3:new(access_key, secret_key, auth_uri)
+
+
+=head2 get_all_buckets
+
+
+    app:get_all_buckets()
+
+
+=head2 create_bucket
+
+
+    app:create_bucket(bucket)
+
+
+=head2 del_bucket
+
+
+    app:del_bucket(bucket)
+
+
+=head2 get_all_objs
+
+
+    app:get_all_objs(bucket)
+
+
+=head2 set_bucket_acl
+
+
+    app:set_bucket_acl(bucket)
+
+
+=head2 create_obj
+
+
+    app:create_obj(bucket, file, content)
+
+
+=head2 get_obj
+
+
+    app:get_obj(bucket, file)
+
+
+=head2 del_obj
+
+
+    app:del_obj(bucket, file)
+
+
+=head1 TODO
+
+
+
+=over
+
+
+=item *
+
+Upload operations.
+
+
+=back
+
+
+=head1 Author
+
+
+Linsir: E<lt>https://github.com/linsirE<gt>
+
+
+=head1 Licence
+
+
+BSD license.
+
+All rights reserved.

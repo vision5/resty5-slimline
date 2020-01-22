@@ -1,0 +1,146 @@
+=encoding utf-8
+
+
+=head1 lua-resty-locations
+
+
+Lua library implementing nginx style 'location' uri matching.
+
+As nginx's L<location|http://nginx.org/en/docs/http/ngx_http_core_module.html#location> feature.   
+Supports longest prefix matching, regex matching, case insensitive regex matching and exact matches.
+
+
+=over
+
+
+=item *
+
+Exact matches are checked first, search returns on hit.
+
+=item *
+
+Prefix matches then checked and the longest match is remembered.
+
+=over
+
+
+=item *
+
+If prefix match has C<^~> modifier search returns
+
+=back
+
+
+=item *
+
+Regexes are checked I<in order>
+
+=item *
+
+If no regex match longest prefix is returned
+
+
+=back
+
+
+=head1 Overview
+
+
+
+    lua_package_path "/path/to/lua-resty-locations/lib/?.lua;;";
+    
+    init_by_lua_block {
+            local locations = require("resty.locations")
+            my_locs = locations:new()
+    
+            -- Prefix match
+            local ok, err = my_locs:set("/foo", "/foo")
+    
+            -- exact match
+            local ok, err = my_locs:set("/bar", "= /bar", "=")
+    
+            -- regex match
+            local ok, err = my_locs:set("^/baz", "~ ^/baz", "~")
+    
+            -- case insensitive regex match
+            local ok, err = my_locs:set("^/qux", "~* ^/qux", "~*")
+    
+            -- prefix match, no regex check
+            local ok, err = my_locs:set("/bazfoo", "^~ /bazfoo", "^~")
+    }
+    
+    server {
+        listen 80 default_server;
+    
+        server_name locations;
+    
+        location / {
+            content_by_lua_block {
+                local val, err = my_locs:lookup(ngx.var.uri)
+                if val then
+                    -- do something based on val
+                    ngx.say("Matched: ", val)
+                else
+                    if err then
+                        ngx.log(ngx.ERR, err)
+                    end
+                    ngx.exit(404)
+                end
+            }
+        }
+    }
+
+
+=head1 Methods
+
+
+=head3 new
+
+C<syntax: my_locations, err = locations:new(size?)>
+
+Creates a new instance of resty-locations with an optional initial size
+
+
+=head3 set
+
+C<syntax: ok, err = my_locations:set(key, value, modifier?)>
+
+Adds a new key with associated value and modifier, default is an empty string for prefix match.   
+Keys must be strings.   
+Returns false and an error message on failure.
+
+Modifiers are as the nginx location feature.
+
+=over
+
+
+=item *
+
+C<> (empty string) - Prefix match
+
+=item *
+
+C<=> - Exact match
+
+=item *
+
+C<~> - Regex match
+
+=item *
+
+C<~*> - Case insensitive regex match
+
+=item *
+
+C<^~> - Prefix match, skip regexes
+
+
+=back
+
+
+=head3 lookup
+
+C<syntax: val, err = my_locations:lookup(uri)>
+
+Retrieves value for provided uri.   
+Returns nil and an error message on failure

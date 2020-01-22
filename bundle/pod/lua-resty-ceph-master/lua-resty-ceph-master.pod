@@ -1,0 +1,226 @@
+=encoding utf-8
+
+
+=head1 lua-resty-ceph
+
+
+A simple Lua wrapper for ceph with s3 and swift based on OpenResty.
+
+More: 
+
+
+=over
+
+
+=item 1.
+
+E<lt>http://docs.ceph.org.cn/radosgw/s3/E<gt>
+
+=item 2.
+
+E<lt>http://docs.ceph.org.cn/radosgw/swift/E<gt>
+
+
+=back
+
+
+=head1 API
+
+
+
+=over
+
+
+=item *
+
+L<new>
+
+=item *
+
+L<get_all_buckets>
+
+=item *
+
+L<create_bucket>
+
+=item *
+
+L<del_bucket>
+
+=item *
+
+L<get_all_buckets>
+
+=item *
+
+L<get_all_objs>
+
+=item *
+
+L<get_buckets_location>
+
+=item *
+
+L<get_buckets_acl>
+
+=item *
+
+L<create_obj>
+
+=item *
+
+L<get_obj>
+
+=item *
+
+L<del_obj>
+
+=item *
+
+L<check_for_existance>
+
+=item *
+
+L<get_obj_acl>
+
+=item *
+
+L<set_obj_acl>
+
+
+=back
+
+
+=head2 Synopsis
+
+
+
+    local cephs3 = require("resty.ceph.s3")
+    local app = cephs3:new(config.access_key, config.secret_key, config.host)
+    
+    local data = app:create_bucket(bucket)
+    ngx.say(data)
+    app:get_all_objs(bucket)
+        
+
+
+=head1 Usage
+
+
+
+=head2 new
+
+
+    local app = cephs3:new(access_key, secret_key, host)
+
+
+=head2 get_all_buckets
+
+
+    app:get_all_buckets()
+
+
+=head2 create_bucket
+
+
+    app:create_bucket(bucket, acl)
+
+
+=head2 del_bucket
+
+
+    app:del_bucket(bucket)
+
+
+=head2 get_all_buckets
+
+
+    app:get_all_buckets()
+
+
+=head2 get_all_objs
+
+
+    app:get_all_objs(bucket)
+    app:get_all_objs(bucket, 'marker=3&max-keys=25')
+
+
+=head2 get_buckets_location
+
+
+    app:get_buckets_location(bucket)
+
+
+=head2 get_buckets_acl(bucket)
+
+
+    app:get_buckets_acl(bucket)
+
+
+=head2 create_obj
+
+
+    app:create_obj(bucket, file, content)
+
+
+=head2 del_obj
+
+
+    app:del_obj(bucket, file)
+
+
+=head2 get_obj
+
+
+    app:get_obj(bucket, file)
+
+
+=head2 check_for_existance
+
+
+    app:check_for_existance(bucket, file)
+
+
+=head2 get_obj_acl
+
+
+    app:get_obj_acl(bucket, file)
+
+
+=head2 set_obj_acl
+
+
+    app:set_obj_acl(bucket, file)
+
+
+=head1 TODO
+
+
+
+=over
+
+
+=item *
+
+Upload operations.
+
+=item *
+
+Simpe wrapper based on  B<Lua-rados> E<lt>https://github.com/noahdesu/lua-radosE<gt>.
+
+
+=back
+
+
+=head1 Author
+
+
+Linsir: E<lt>https://github.com/linsirE<gt>
+
+
+=head1 Licence
+
+
+BSD license.
+
+All rights reserved.

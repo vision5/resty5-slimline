@@ -1,0 +1,348 @@
+=encoding utf-8
+
+
+=head1 lua-resty-redis-connector
+
+
+Connection utilities for L<lua-resty-redis|https://github.com/openresty/lua-resty-redis>, making it easy and reliable to connect to Redis hosts, either directly or via L<Redis Sentinel|http://redis.io/topics/sentinel>.
+
+
+=head2 Synopsis
+
+
+Quick and simple authenticated connection on localhost to DB 2:
+
+
+    local redis, err = require("resty.redis.connector").new({
+        url = "redis://PASSWORD@127.0.0.1:6379/2",
+    }):connect()
+
+More verbose configuration, with timeouts and a default password:
+
+
+    local rc = require("resty.redis.connector").new({
+        connect_timeout = 50,
+        read_timeout = 5000,
+        keepalive_timeout = 30000,
+        password = "mypass",
+    })
+    
+    local redis, err = rc:connect({
+        url = "redis://127.0.0.1:6379/2",
+    })
+    
+    -- ...
+    
+    local ok, err = rc:set_keepalive(redis)  -- uses keepalive params
+
+Keep all config in a table, to easily create / close connections as needed:
+
+
+    local rc = require("resty.redis.connector").new({
+        connect_timeout = 50,
+        read_timeout = 5000,
+        keepalive_timeout = 30000,
+    
+        host = "127.0.0.1",
+        port = 6379,
+        db = 2,
+        password = "mypass",
+    })
+    
+    local redis, err = rc:connect()
+    
+    -- ...
+    
+    local ok, err = rc:set_keepalive(redis)
+
+L<connect> can be used to override some defaults given in L<new>, which are pertinent to this connection only.
+
+
+    local rc = require("resty.redis.connector").new({
+        host = "127.0.0.1",
+        port = 6379,
+        db = 2,
+    })
+    
+    local redis, err = rc:connect({
+        db = 5,
+    })
+
+
+=head2 DSN format
+
+
+If the C<params.url> field is present then it will be parsed to set the other params. Any manually specified params will override values given in the DSN.
+
+I<Note: this is a behaviour change as of v0.06. Previously, the DSN values would take precedence.>
+
+
+=head3 Direct Redis connections
+
+
+The format for connecting directly to Redis is:
+
+C<redis://PASSWORD@HOST:PORT/DB>
+
+The C<PASSWORD> and C<DB> fields are optional, all other components are required.
+
+
+=head3 Connections via Redis Sentinel
+
+
+When connecting via Redis Sentinel, the format is as follows:
+
+C<sentinel://PASSWORD@MASTER_NAME:ROLE/DB>
+
+Again, C<PASSWORD> and C<DB> are optional. C<ROLE> must be either C<m> or C<s> for master / slave respectively.
+
+A table of C<sentinels> must also be supplied. e.g.
+
+
+    local redis, err = rc:connect{
+        url = "sentinel://mymaster:a/2",
+        sentinels = {
+            { host = "127.0.0.1", port = 26379 },
+        }
+    }
+
+
+=head2 Proxy Mode
+
+
+Enable the C<connection_is_proxied> parameter if connecting to Redis through a proxy service (e.g. Twemproxy).
+These proxies generally only support a limited sub-set of Redis commands, those which do not require state and do not affect multiple keys.
+Databases and transactions are also not supported.
+
+Proxy mode will disable switching to a DB on connect.
+Unsupported commands (defaults to those not supported by Twemproxy) will return C<nil, err> immediately rather than being sent to the proxy, which can result in dropped connections.
+
+C<discard> will not be sent when adding connections to the keepalive pool
+
+
+=head2 Disabled commands
+
+
+If configured as a table of commands, the command methods will be replaced by a function which immediately returns C<nil, err> without forwarding the command to the server
+
+
+=head2 Default Parameters
+
+
+
+    {
+        connect_timeout = 100,
+        read_timeout = 1000,
+        connection_options = {}, -- pool, etc
+        keepalive_timeout = 60000,
+        keepalive_poolsize = 30,
+    
+        host = "127.0.0.1",
+        port = "6379",
+        path = "",  -- unix socket path, e.g. /tmp/redis.sock
+        password = "",
+        db = 0,
+    
+        master_name = "mymaster",
+        role = "master",  -- master | slave
+        sentinels = {},
+    
+        connection_is_proxied = false,
+    
+        disabled_commands = {},
+    }
+
+
+=head2 API
+
+
+
+=over
+
+
+=item *
+
+L<new>
+
+=item *
+
+L<connect>
+
+=item *
+
+L<set_keepalive>
+
+=item *
+
+L<Utilities>
+
+=over
+
+
+=item *
+
+L<connect_via_sentinel>
+
+=item *
+
+L<try_hosts>
+
+=item *
+
+L<connect_to_host>
+
+=item *
+
+L<sentinel.get_master>
+
+=item *
+
+L<sentinel.get_slaves>
+
+
+=back
+
+
+=back
+
+
+=head3 new
+
+
+C<syntax: rc = redis_connector.new(params)>
+
+Creates the Redis Connector object, overring default params with the ones given. In case of failures, returns C<nil> and a string describing the error.
+
+
+=head3 connect
+
+
+C<syntax: redis, err = rc:connect(params)>
+
+Attempts to create a connection, according to the L<params> supplied, falling back to defaults given in C<new> or the predefined defaults. If a connection cannot be made, returns C<nil> and a string describing the reason.
+
+Note that C<params> given here do not change the connector's own configuration, and are only used to alter this particular connection operation. As such, the following parameters have no meaning when given in C<connect>.
+
+
+=over
+
+
+=item *
+
+C<keepalive_poolsize>
+
+=item *
+
+C<keepalive_timeout>
+
+=item *
+
+C<connection_is_proxied>
+
+=item *
+
+C<disabled_commands>
+
+
+=back
+
+
+=head3 set_keepalive
+
+
+C<syntax: ok, err = rc:set_keepalive(redis)>
+
+Attempts to place the given Redis connection on the keepalive pool, according to timeout and poolsize params given in C<new> or the predefined defaults.
+
+This allows an application to release resources without having to keep track of application wide keepalive settings.
+
+Returns C<1> or in the case of error, C<nil> and a string describing the error.
+
+
+=head2 Utilities
+
+
+The following methods are not typically needed, but may be useful if a custom interface is required.
+
+
+=head3 connect_via_sentinel
+
+
+C<syntax: redis, err = rc:connect_via_sentinel(params)>
+
+Returns a Redis connection by first accessing a sentinel as supplied by the C<params.sentinels> table,
+and querying this with the C<params.master_name> and C<params.role>.
+
+
+=head3 try_hosts
+
+
+C<syntax: redis, err = rc:try_hosts(hosts)>
+
+Tries the hosts supplied in order and returns the first successful connection.
+
+
+=head3 connect_to_host
+
+
+C<syntax: redis, err = rc:connect_to_host(host)>
+
+Attempts to connect to the supplied C<host>.
+
+
+=head3 sentinel.get_master
+
+
+C<syntax: master, err = sentinel.get_master(sentinel, master_name)>
+
+Given a connected Sentinel instance and a master name, will return the current master Redis instance.
+
+
+=head3 sentinel.get_slaves
+
+
+C<syntax: slaves, err = sentinel.get_slaves(sentinel, master_name)>
+
+Given a connected Sentinel instance and a master name, will return a list of registered slave Redis instances.
+
+
+=head1 Author
+
+
+James Hurst E<lt>james@pintsized.co.ukE<gt>
+
+
+=head1 Licence
+
+
+This module is licensed under the 2-clause BSD license.
+
+Copyright (c) James Hurst E<lt>james@pintsized.co.ukE<gt>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+
+=over
+
+
+=item *
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+
+=back
+
+
+=over
+
+
+=item *
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+
+=back
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

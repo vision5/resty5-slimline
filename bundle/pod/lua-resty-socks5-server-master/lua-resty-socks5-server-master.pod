@@ -1,0 +1,71 @@
+=encoding utf-8
+
+
+=head1 Name
+
+
+=head1 lua-resty-socks5-server
+
+This is an implementation of the SOCKS v5 L<RFC1928|https://www.ietf.org/rfc/rfc1928.txt> server in the OpenResty and It's based on the stream-lua-ningx-module under the hood.
+
+
+=head2 run
+
+C<syntax: module.run(timeout[,username, password])>
+
+run a socks5 server.
+
+
+=over
+
+
+=item *
+
+C<timeout>
+The socket timeout (default 1000 ms) include connect、read、write between upstream and downstream.
+
+
+=back
+
+
+=over
+
+
+=item *
+
+C<username>
+The socks5 authentication username.
+
+
+=back
+
+
+=over
+
+
+=item *
+
+C<password>
+The socks5 authentication username.
+
+
+=back
+
+
+=head2 Contributing
+
+To contribute to lua-resty-socks5-server, clone this repo locally and commit your code on a separate branch.
+
+PS: PR Welcome :rocket: :rocket: :rocket: :rocket:
+
+
+=head2 Author
+
+E<gt> GitHub L<@detailyang|https://github.com/detailyang>
+
+
+=head2 License
+
+lua-resty-socks5-server is licensed under the [MIT] license.
+
+[MIT]: https://github.com/detailyang/ybw/blob/master/licenses/MIT

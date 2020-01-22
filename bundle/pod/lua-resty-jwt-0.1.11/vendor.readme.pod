@@ -1,0 +1,18 @@
+=encoding utf-8
+
+
+=head1 Third Party Libraries
+
+
+This folder contains important 3rd party libraries that not availab on luarocks.
+
+
+=over
+
+
+=item *
+
+resty/hmac.lua L<lua-resty-hmac|https://github.com/jkeys089/lua-resty-hmac>
+
+=back
+

@@ -1,0 +1,92 @@
+=encoding utf-8
+
+
+=head1 Authors
+
+Thank you guys for making this project better!
+
+
+=head2 Repo Owners
+
+
+=over
+
+
+=item *
+
+L<@SkyLothar|https://github.com/skylothar> E<lt>allothar@gmail.comE<gt>
+
+
+=back
+
+
+=head2 Tons of Features
+
+
+=over
+
+
+=item *
+
+Em. L<@fermaem|https://github.com/fermaem>
+
+=item *
+
+Nathan Toone L<@toonetown|https://github.com/toonetown>
+
+
+=back
+
+
+=head2 Resty.EVP
+
+
+=over
+
+
+=item *
+
+Daniel Hiltgen L<@dhiltgen|https://github.com/dhiltgen>
+
+=item *
+
+ravenscar L<@ravenscar|https://github.com/ravenscar>
+
+=item *
+
+William L<@Deadleg|https://github.com/Deadleg>
+
+
+=back
+
+
+=head2 Patches and Suggestions
+
+
+=over
+
+
+=item *
+
+Daniel Hiltgen L<@dhiltgen|https://github.com/dhiltgen>
+
+=item *
+
+Jun Hanamaki L<@junhanamaki|https://github.com/junhanamaki>
+
+
+=back
+
+
+=head2 Resty.HMAC
+
+
+=over
+
+
+=item *
+
+@jkeys089 L<lua-resty-hmac|https://github.com/jkeys089/lua-resty-hmac>
+
+=back
+

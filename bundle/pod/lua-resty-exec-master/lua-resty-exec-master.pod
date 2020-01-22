@@ -1,0 +1,492 @@
+=encoding utf-8
+
+
+=head1 lua-resty-exec
+
+
+A small Lua module for executing processes. It's primarily
+intended to be used with OpenResty, but will work in regular Lua applications
+as well. When used with OpenResty, it's completely non-blocking (otherwise it
+falls back to using LuaSocket and does block).
+
+It's similar to (and inspired by)
+L<lua-resty-shell|https://github.com/juce/lua-resty-shell>, the primary
+difference being this module uses sockexec, which doesn't spawn a shell -
+instead you provide an array of argument strings, which means you don't need
+to worry about shell escaping/quoting/parsing rules.
+
+Additionally, as of version 2.0.0, you can use C<resty.exec.socket> to access a
+lower-level interface that allows two-way communication with programs. You can
+read and write to running applications!
+
+This requires your web server to have an active instance of
+L<sockexec|https://github.com/jprjr/sockexec> running.
+
+
+=head2 Changelog
+
+
+
+=over
+
+
+=item *
+
+C<3.0.0>
+
+=over
+
+
+=item *
+
+new field returned: C<unknown> - if this happens please send me a bug!
+
+=back
+
+
+=item *
+
+C<2.0.0>
+
+=over
+
+
+=item *
+
+New C<resty.exec.socket> module for using a duplex connection
+
+=item *
+
+C<resty.exec> no longer uses the C<bufsize> argument
+
+=item *
+
+C<resty.exec> now accepts a C<timeout> argument, specify in milliseconds, defaults to 60s
+
+=item *
+
+This is a major revision, please test thoroughly before upgrading!
+
+=back
+
+
+=item *
+
+No changelog before C<2.0.0>
+
+
+=back
+
+
+=head2 Installation
+
+
+C<lua-resty-exec> is available on L<luarocks|https://luarocks.org/modules/jprjr/lua-resty-exec>
+as well as L<opm|https://opm.openresty.org/>, you can install it with `luarocks install
+lua-resty-execC< or >opm get jprjr/lua-resty-exec`.
+
+If you're using this outside of OpenResty, you'll also need the LuaSocket
+module installed, ie C<luarocks install luasocket>.
+
+Additionally, you'll need C<sockexec> running, see L<its repo|https://github.com/jprjr/sockexec>
+for instructions.
+
+
+=head2 C<resty.exec> Usage
+
+
+
+    local exec = require'resty.exec'
+    local prog = exec.new('/tmp/exec.sock')
+
+Creates a new C<prog> object, using C</tmp/exec.sock> for its connection to
+sockexec.
+
+From there, you can use C<prog> in a couple of different ways:
+
+
+=head3 ez-mode
+
+
+
+    local res, err = prog('uname')
+    
+    -- res = { stdout = "Linux\n", stderr = nil, exitcode = 0, termsig = nil }
+    -- err = nil
+    
+    ngx.print(res.stdout)
+
+This will run C<uname>, with no data on stdin.
+
+Returns a table of output/error codes, with C<err> set to any errors
+encountered.
+
+
+=head3 Setup argv beforehand
+
+
+
+    prog.argv = { 'uname', '-a' }
+    local res, err = prog()
+    
+    -- res = { stdout = "Linux localhost 3.10.18 #1 SMP Tue Aug 2 21:08:34 PDT 2016 x86_64 GNU/Linux\n", stderr = nil, exitcode = 0, termsig = nil }
+    -- err = nil
+    
+    ngx.print(res.stdout)
+
+
+=head3 Setup stdin beforehand
+
+
+
+    prog.stdin = 'this is neat!'
+    local res, err = prog('cat')
+    
+    -- res = { stdout = "this is neat!", stderr = nil, exitcode = 0, termsig = nil }
+    -- err = nil
+    
+    ngx.print(res.stdout)
+
+
+=head3 Call with explicit argv, stdin data, stdout/stderr callbacks
+
+
+
+    local res, err = prog( {
+        argv = 'cat',
+        stdin = 'fun!',
+        stdout = function(data) print(data) end,
+        stderr = function(data) print("error:", data) end
+    } )
+    
+    -- res = { stdout = nil, stderr = nil, exitcode = 0, termsig = nil }
+    -- err = nil
+    -- 'fun!' is printed
+
+Note: here C<argv> is a string, which is fine if your program doesn't need
+any arguments.
+
+
+=head3 Setup stdout/stderr callbacks
+
+
+If you set C<prog.stdout> or C<prog.stderr> to a function, it will be called for
+each chunk of stdout/stderr data received.
+
+Please note that there's no guarantees of stdout/stderr being a complete
+string, or anything particularly sensible for that matter!
+
+
+    prog.stdout = function(data)
+        ngx.print(data)
+        ngx.flush(true)
+    end
+    
+    local res, err = prog('some-program')
+    
+
+
+=head3 Treat timeouts as non-errors
+
+
+By default, C<sockexec> treats a timeout as an error. You can disable this by
+setting the object's C<timeout_fatal> key to false. Examples:
+
+
+    -- set timeout_fatal = false on the prog objects
+    prog.timeout_fatal = false
+    
+    -- or, set it at calltime:
+    local res, err = prog({argv = {'cat'}, timeout_fatal = false})
+
+
+=head3 But I actually want a shell!
+
+
+Not a problem! You can just do something like:
+
+
+    local res, err = prog('bash','-c','echo $PATH')
+
+Or if you want to run an entire script:
+
+
+    prog.stdin = script_data
+    local res, err = prog('bash')
+    
+    -- this is roughly equivalent to running `bash < script` on the CLI
+
+
+=head3 Daemonizing processes
+
+
+I generally recommend against daemonizing processes - I think it's far
+better to use some kind of message queue and/or supervision system, so
+you can monitor processes, take actions on failure, and so on.
+
+That said, if you want to spin off some process, you could use
+C<start-stop-daemon>, ie:
+
+
+    local res, err = prog('start-stop-daemon','--pidfile','/dev/null','--background','--exec','/usr/bin/sleep', '--start','--','10')
+
+will spawn C<sleep 10> as a detached background process.
+
+If you don't want to deal with C<start-stop-daemon>, I have a small utility
+for spawning a background program called L<idgaf|https://github.com/jprjr/idgaf>, ie:
+
+
+    local res, err = prog('idgaf','sleep','10')
+
+This will basically accomplish the same thing C<start-stop-daemon> does without
+requiring a billion flags.
+
+
+=head2 C<resty.exec.socket> Usage
+
+
+
+    local exec_socket = require'resty.exec.socket'
+    
+    -- you can specify timeout in milliseconds, optional
+    local client = exec_socket:new({ timeout = 60000 })
+    
+    -- every new program instance requires a new
+    -- call to connect
+    local ok, err = client:connect('/tmp/exec.sock')
+    
+    -- send program arguments, only accepts a table of
+    -- arguments
+    client:send_args({'cat'})
+    
+    -- send data for stdin
+    client:send('hello there')
+    
+    -- receive data
+    local data, typ, err = client:receive()
+    
+    -- `typ` can be one of:
+    --    `stdout`   - data from the program's stdout
+    --    `stderr`   - data from the program's stderr
+    --    `exitcode` - the program's exit code
+    --    `termsig`  - if terminated via signal, what signal was used
+    
+    -- if `err` is set, data and typ will be nil
+    -- common `err` values are `closed` and `timeout`
+    print(string.format('Received %s data: %s',typ,data)
+    -- will print 'Received stdout data: hello there'
+    
+    client:send('hey this cat process is still running')
+    data, typ, err = client:receive()
+    print(string.format('Received %s data: %s',typ,data)
+    -- will print 'Received stdout data: hey this cat process is still running'
+    
+    client:send_close() -- closes stdin
+    data, typ, err = client:receive()
+    print(string.format('Received %s data: %s',typ,data)
+    -- will print 'Received exitcode data: 0'
+    
+    data, typ, err = client:receive()
+    print(err) -- will print 'closed'
+
+
+=head3 C<client> object methods:
+
+
+
+=over
+
+
+=item *
+
+B<C<ok, err = client:connect(path)>**
+
+
+=back
+
+Connects via unix socket to the path given. If this is running
+in nginx, the C<unix:> string will be prepended automatically.
+
+
+=over
+
+
+=item *
+
+B<C<bytes, err = client:send_args(args)>**
+
+
+=back
+
+Sends a table of arguments to sockexec and starts the program.
+
+
+=over
+
+
+=item *
+
+B<C<bytes, err = client:send_data(data)>**
+
+
+=back
+
+Sends C<data> to the program's standard input
+
+
+=over
+
+
+=item *
+
+B<C<bytes, err = client:send(data)>**
+
+
+=back
+
+Just a shortcut to C<client:send_data(data)>
+
+
+=over
+
+
+=item *
+
+B<C<bytes, err = client:send_close()>**
+
+
+=back
+
+Closes the program's standard input. You can also send an empty
+string, like C<client:send_data('')>
+
+
+=over
+
+
+=item *
+
+B<C<data, typ, err = client:receive()>**
+
+
+=back
+
+Receives data from the running process. C<typ> indicates the type
+of data, which can be C<stdout>, C<stderr>, C<termsig>, C<exitcode>
+
+C<err> is typically either C<closed> or C<timeout>
+
+
+=over
+
+
+=item *
+
+B<C<client:close()>**
+
+
+=back
+
+Forcefully closes the client connection
+
+
+=over
+
+
+=item *
+
+B<C<client:getfd()>**
+
+
+=back
+
+A getfd method, useful if you want to monitor the underlying socket
+connection in a select loop
+
+
+=head2 Some example nginx configs
+
+
+Assuming you're running sockexec at C</tmp/exec.sock>
+
+
+    $ sockexec /tmp/exec.sock
+
+Then in your nginx config:
+
+
+    location /uname-1 {
+        content_by_lua_block {
+            local prog = require'resty.exec'.new('/tmp/exec.sock')
+            local data,err = prog('uname')
+            if(err) then
+                ngx.say(err)
+            else
+                ngx.say(data.stdout)
+            end
+        }
+    }
+    location /uname-2 {
+        content_by_lua_block {
+            local prog = require'resty.exec'.new('/tmp/exec.sock')
+            prog.argv = { 'uname', '-a' }
+            local data,err = prog()
+            if(err) then
+                ngx.say(err)
+            else
+                ngx.say(data.stdout)
+            end
+        }
+    }
+    location /cat-1 {
+        content_by_lua_block {
+            local prog = require'resty.exec'.new('/tmp/exec.sock')
+            prog.stdin = 'this is neat!'
+            local data,err = prog('cat')
+            if(err) then
+                ngx.say(err)
+            else
+                ngx.say(data.stdout)
+            end
+        }
+    }
+    location /cat-2 {
+        content_by_lua_block {
+            local prog = require'resty.exec'.new('/tmp/exec.sock')
+            local data,err = prog({argv = 'cat', stdin = 'awesome'})
+            if(err) then
+                ngx.say(err)
+            else
+                ngx.say(data.stdout)
+            end
+        }
+    }
+    location /slow-print {
+        content_by_lua_block {
+            local prog = require'resty.exec'.new('/tmp/exec.sock')
+            prog.stdout = function(v)
+                ngx.print(v)
+                ngx.flush(true)
+            end
+            prog('/usr/local/bin/slow-print')
+        }
+        # look in `/misc` of this repo for `slow-print`
+    }
+    location /shell {
+        content_by_lua_block {
+            local prog = require'resty.exec'.new('/tmp/exec.sock')
+            local data, err = prog('bash','-c','echo $PATH')
+            if(err) then
+                ngx.say(err)
+            else
+                ngx.say(data.stdout)
+            end
+        }
+    }
+    
+
+
+=head2 License
+
+
+MIT license (see C<LICENSE>)

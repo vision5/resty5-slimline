@@ -1,0 +1,655 @@
+=encoding utf-8
+
+
+=head1 Name
+
+lua-resty-checkups - Manage Nginx upstreams in pure ngx_lua
+
+[!L<Build Status|https://travis-ci.org/upyun/lua-resty-checkups.svg>](https://travis-ci.org/upyun/lua-resty-checkups)
+
+
+=head1 Status
+
+Probably production ready in most cases, though not yet proven in the wild. Please check the issues list and let me know if you have any problems / questions.
+
+
+=head1 Features
+
+
+=over
+
+
+=item *
+
+Periodically heartbeat to upstream servers
+
+=item *
+
+Proactive and passive health check
+
+=item *
+
+Dynamic upstream update
+
+=item *
+
+Balance by weighted round-robin or consistent-hash
+
+=item *
+
+Synchronize with Nginx upstream blocks
+
+=item *
+
+Try clusters by levels or by keys
+
+
+=back
+
+
+=head1 Synopsis
+
+
+        -- config.lua
+    
+        _M = {}
+    
+        _M.global = {
+            checkup_timer_interval = 15,
+            checkup_shd_sync_enable = true,
+            shd_config_timer_interval = 1,
+        }
+    
+        _M.ups1 = {
+            cluster = {
+                {
+                    servers = {
+                        {host="127.0.0.1", port=4444, weight=10, max_fails=3, fail_timeout=10},
+                    }
+                },
+            },
+        }
+    
+        return _M
+
+
+        -- nginx.conf
+    
+        lua_package_path "/path/to/lua-resty-checkups/lib/?.lua;/path/to/config.lua;;";
+    
+        lua_shared_dict state 10m;
+        lua_shared_dict mutex 1m;
+        lua_shared_dict locks 1m;
+        lua_shared_dict config 10m;
+    
+        server {
+            listen 12350;
+            return 200 12350;
+        }
+    
+        server {
+            listen 12351;
+            return 200 12351;
+        }
+    
+        init_worker_by_lua_block {
+            local config = require "config"
+            local checkups = require "resty.checkups.api"
+    
+            checkups.prepare_checker(config)
+            checkups.create_checker()
+        }
+    
+        server {
+            location = /12350 {
+                proxy_pass http://127.0.0.1:12350/;
+            }
+            location = /12351 {
+                proxy_pass http://127.0.0.1:12351/;
+            }
+    
+            location = /t {
+                content_by_lua_block {
+                    local checkups = require "resty.checkups.api"
+    
+                    local callback = function(host, port)
+                    local res = ngx.location.capture("/" .. port)
+                        ngx.say(res.body)
+                        return 1
+                    end
+    
+                    local ok, err
+    
+                    -- connect to a dead server, no upstream available
+                    ok, err = checkups.ready_ok("ups1", callback)
+                    if err then ngx.say(err) end
+    
+                    -- add server to ups1
+                    ok, err = checkups.update_upstream("ups1", {
+                        {
+                            servers = {
+                                {host="127.0.0.1", port=12350, weight=10, max_fails=3, fail_timeout=10},
+                            }
+                        },
+                    })
+    
+                    if err then ngx.say(err) end
+                    ngx.sleep(1)
+                    ok, err = checkups.ready_ok("ups1", callback)
+                    if err then ngx.say(err) end
+                    ok, err = checkups.ready_ok("ups1", callback)
+                    if err then ngx.say(err) end
+    
+                    -- add server to new upstream
+                    ok, err = checkups.update_upstream("ups2", {
+                            {
+                                servers = {
+                                    {host="127.0.0.1", port=12351},
+                                }
+                            },
+                        })
+                    if err then ngx.say(err) end
+                    ngx.sleep(1)
+                    ok, err = checkups.ready_ok("ups2", callback)
+                    if err then ngx.say(err) end
+    
+                    -- add server to ups2, reset rr state
+                    ok, err = checkups.update_upstream("ups2", {
+                            {
+                                servers = {
+                                    {host="127.0.0.1", port=12350, weight=10, max_fails=3, fail_timeout=10},
+                                    {host="127.0.0.1", port=12351, weight=10, max_fails=3, fail_timeout=10},
+                                }
+                            },
+                        })
+                    if err then ngx.say(err) end
+                    ngx.sleep(1)
+                    ok, err = checkups.ready_ok("ups2", callback)
+                    if err then ngx.say(err) end
+                    ok, err = checkups.ready_ok("ups2", callback)
+                    if err then ngx.say(err) end
+                }
+            }
+        }
+
+A typical output of the C</t> location defined above is:
+
+    no servers available
+    12350
+    12350
+    12351
+    12350
+    12351
+
+
+=head1 Configuration
+
+
+=head2 Lua configuration
+
+Configuration file of checkups is a lua module consists of two parts, the global part and the cluster part.
+
+An example configuration file of checkups is shown below,
+
+
+        -- config.lua
+    
+        -- Here is the global part
+    
+        _M = {}
+    
+        _M.global = {
+            checkup_timer_interval = 15,
+            checkup_timer_overtime = 60,
+            default_heartbeat_enable = true,
+            checkup_shd_sync_enable = true,
+            shd_config_timer_interval = 1,
+        }
+    
+    
+        -- The rests parts are cluster configurations
+    
+        _M.redis = {
+            enable = true,
+            typ = "redis",
+            timeout = 2,
+            read_timeout = 15,
+            send_timeout = 15,
+    
+            protected = true,
+    
+            cluster = {
+                {   -- level 1
+                        try = 2,
+                    servers = {
+                        { host = "192.168.0.1", port = 6379, weight=10, max_fails=3, fail_timeout=10 },
+                        { host = "192.168.0.2", port = 6379, weight=10, max_fails=3, fail_timeout=10 },
+                    }
+                },
+                {   -- level 2
+                    servers = {
+                        { host = "192.168.0.3", port = 6379, weight=10, max_fails=3, fail_timeout=10 },
+                    }
+                },
+            },
+        }
+    
+        _M.api = {
+            enable = false,
+            typ = "http",
+                http_opts = {
+                query = "GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n",
+                statuses = {
+                        [500] = false,
+                        [502] = false,
+                        [503] = false,
+                        [504] = false,
+                },
+            },
+    
+            mode = "hash",
+    
+            cluster = {
+                dc1 = {
+                    servers = {
+                        { host = "192.168.1.1", port = 1234, weight=10, max_fails=3, fail_timeout=10 },
+                    }
+                },
+                dc2 = {
+                    servers = {
+                        { host = "192.168.1.2", port = 1234, weight=10, max_fails=3, fail_timeout=10 },
+                    }
+                }
+            }
+        }
+    
+        _M.ups_from_nginx = {
+            timeout = 2,
+    
+            cluster = {
+                {   -- level 1
+                    upstream = "api.com",
+                },
+                {   -- level 2
+                    upstream = "api.com",
+                    upstream_only_backup = true,
+                },
+            },
+        }
+    
+        return _M
+
+
+=head2 global configurations
+
+
+=over
+
+
+=item *
+
+C<checkup_timer_interval>: Interval of sending heartbeats to backend servers. Default is C<5>.
+
+=item *
+
+C<checkup_timer_overtime>: Interval of checkups to expire the timer key. In most cases, you don't need to change this value. Default is C<60>.
+
+=item *
+
+C<default_heartbeat_enable>: Checkups will sent heartbeats to servers by default or not. Default is C<true>.
+
+=item *
+
+C<checkup_shd_sync_enable>: Create upstream syncer for each worker. If set to C<false>, dynamic upstream will not work properly. Default is C<true>.
+
+=item *
+
+C<shd_config_timer_interval>: Interval of syncing upstream list from shared memory. Default is equal to C<checkup_timer_interval>.
+
+=item *
+
+C<ups_status_sync_enable>: If set to C<true>, checkups will sync upstram status from checkups to Nginx upstream blocks. Default is C<false>.
+
+=item *
+
+C<ups_status_timer_interval>: Interval of syncing upstream status from checkups to Nginx upstream blocks.
+
+
+=back
+
+
+=head2 Cluster configurations
+
+
+=over
+
+
+=item *
+
+C<skey>: C<_M.xxxxx>. C<xxxxx> is the C<skey>(service key) of this Cluster.
+
+=item *
+
+C<enable>: Enable or disable heartbeats to servers. Default is C<true>.
+
+=item *
+
+C<typ>: Cluster type, must be one of C<general>, C<redis>, C<mysql>, C<http>. Default is C<general>.
+
+=over
+
+
+=item *
+
+C<general>: Heartbeat by TCP C<sock:connect>.
+
+=item *
+
+C<redis>: Heartbeat by redis C<PING>. L<lua-resty-redis|https://github.com/openresty/lua-resty-redis> module is required.
+
+=item *
+
+C<mysql>: Heartbeat by mysql C<db:connect>. L<lua-resty-mysql|https://github.com/openresty/lua-resty-mysql> module is required.
+
+=item *
+
+C<http>: Heartbeat by HTTP request. You can setup customized HTTP request and response codes in C<http_opts>.
+
+=back
+
+
+=item *
+
+C<timeout>: Connect timeout to upstream servers. Default is C<5>.
+
+=item *
+
+C<read_timeout>: Read timeout to upstream servers. Default is equal to C<timeout>.
+
+=item *
+
+C<send_timeout>: Write timeout to upstream servers. Default is equal to C<timeout>.
+
+=item *
+
+C<http_opts>: HTTP heartbeat configurations. Only works for C<typ="http">.
+
+=over
+
+
+=item *
+
+C<query>: HTTP request to heartbeat.
+
+=item *
+
+C<statuses>: If the code returned by server is set to C<false>, then the server is considered to be failing.
+
+
+=back
+
+
+=back
+
+
+=over
+
+
+=item *
+
+C<mode>: Balance mode. Can be set to C<hash>, C<url_hash> or C<ip_hash>. Checkups will balance servers by C<hash_key>, C<ngx.var.uri> or C<ngx.var.remote_addr>. Default is C<wrr>.
+
+=item *
+
+C<protected>: If set to C<true> and all the servers in the cluster are failing, checkups will not mark the last failing server as unavailable(C<err>), instead, it will be marked as C<unstable>(still available in next try). Default is C<true>.
+
+=item *
+
+C<cluster>: You can configure multiple levels according to the cluster priority, at each level you can configure a cluster of C<servers>. Checkups will try next level only when all the servers in the prior level are consitered unavailable.
+
+
+=back
+
+Instead of trying clusters by levels, you can configure checkups trying clusters by key(see C<api> cluster above). Remember you should also pass extra argument like C<opts.cluster_key={"dc1", "dc2"}> or C<opts.cluster_key={3, 1, 2}> to L<checkups.read_ok> to make checkups trying on the order of C<dc1>, C<dc2> or C<level 3>, C<level 1>, C<level 2>. If you haven't passed C<opts.cluster_key> to L<checkups.ready_ok>, checkups will still try clusters by levels. As for the above C<api> cluster, checkups will eventually return C<no servers available>.
+
+=over
+
+
+=item *
+
+C<try>: Retry count. Default is the number of servers.
+
+=item *
+
+C<try_timeout>: Limits the time during which a request can be responsed, likewise nginx C<proxy_next_upstream_timeout>.
+
+=item *
+
+C<servers>: Configuration for C<servers> are listed as follows,
+
+=over
+
+
+=item *
+
+C<weight>: Sets the weight of the server. Default is C<1>.
+
+=item *
+
+C<max_fails>: Sets the number of unsuccessful attempts to communicate with the server that should happen in the duration set by the C<fail_timeout> parameter. By default, the number of unsuccessful attempts is set to C<0>, which disables the accounting of attempts. What is considered an unsuccessful attempt is defined by C<http_opts.statuses> if C<typ="http"> or a C<nil>/C<false> return by L<checkups.ready_ok>. This options is only available in round-robin.
+
+=item *
+
+C<fail_timeout>: Sets the time during which the specified number of unsuccessful attempts to communicate with the server should happen to consider the server unavailable and the period of time the server will be considered unavailable. By default, the parameter is set to C<10> seconds. This options is only available in round-robin.
+
+
+=back
+
+
+=back
+
+
+=over
+
+
+=item *
+
+C<upstream>: Name of Nginx upstream blocks. Checkups will extract servers from Nginx conf's upstream blocks in L<prepare_checker>. L<lua-upstream-nginx-module|https://github.com/openresty/lua-upstream-nginx-module> module is required.
+
+=item *
+
+C<upstream_only_backup>: If set to C<true>, checkups will only extract backup servers from Nginx upstream blocks.
+
+
+=back
+
+
+=head2 Nginx configuration
+
+Add pathes of lua config file and checkups to C<lua_package_path> and create lua shared dicts used by checkups. You should put these lines into C<http> block of your Nginx config file.
+
+    lua_package_path "/path/to/lua-resty-checkups/lib/?.lua;/path/to/config.lua;;";
+
+    lua_shared_dict state 10m;
+    lua_shared_dict mutex 1m;
+    lua_shared_dict locks 1m;
+    lua_shared_dict config 10m;
+
+
+=head1 API
+
+!L<|lua-resty-checkups+API.png>
+
+
+=head2 prepare_checker
+
+B<syntax:> I<prepare_checker(config)>
+
+B<phase:> I<init_by_lua init_worker_by_lua>
+
+Copy configurations from C<config.lua> to checkups, extract servers from Nginx upstream blocks and do some basic initialization. This method can be called in C<init> phase or C<init_worker> phase. If you want to extract servers from Nginx upstream blocks, then you must call this method in C<init_worker> phase.
+
+
+=head2 create_checker
+
+B<syntax:> I<create_checker()>
+
+B<phase:> I<init_worker_by_lua>
+
+Create heartbeat timer and upstream sync timer. Only one heartbeat timer will be created among all the workers. It's highly recommended to call this method in C<init_worker> phase.
+
+
+=head2 ready_ok
+
+B<syntax:> I<res, err = ready_ok(skey, callback, opts?)>
+
+B<phase:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, ngx.timer.E<42>>
+
+Select an available C<peer> from cluster C<skey> and call C<callback(peer.host, peer.port, opts)>.
+
+The C<opts> table accepts the following fields,
+
+
+=over
+
+
+=item *
+
+C<cluster_key>: Try clusters by C<cluster_key>. Checkups will try clusters on the order of C<cluster_key>. C<clusters_key> can be the name of the clusters or the level of the clusters. clusters eg: C<{"cluster_name_A", "name_B", "name_C"}>. levels eg: C<{3, 2, 1}>.
+
+=item *
+
+C<hash_key>: Key used in C<hash> balance mode. If not set, C<ngx.req.uri> will be used.
+
+=item *
+
+C<try>: Retry will be no more than C<try> times.
+
+=item *
+
+C<try_timeout>: Limits the time during which a request can be responsed, likewise nginx C<proxy_next_upstream_timeout>.
+
+
+=back
+
+Returns what C<callback> returns on success, or returns C<nil> and a string describing the error otherwise.
+
+If C<callback> returns C<nil> or C<false>, checkups will consider it to be a failed try and will retry C<callback> with another peer. So, B<always remember not to return C<nil> or C<false> after a successful callback.>
+
+
+=head2 select_peer
+
+B<syntax:> I<peer, err = select_peer(skey)>
+
+B<context:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, balancer_by_lua>
+
+Select an available peer from cluster C<skey>.
+
+Return a table containing C<host> and C<port> of an available peer.
+
+In case of errors, returns nil with a string describing the error.
+
+
+=head2 get_status
+
+B<syntax:> I<status = get_status()>
+
+B<phase:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, ngx.timer.E<42>>
+
+Return checkups status in C<json> format.
+
+
+=head2 get_ups_timeout
+
+B<syntax:> I<connect_timeout, send_timeout, read_timeout = get_ups_timeout(skey)>
+
+B<phase:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, ngx.timer.E<42>>
+
+Return timeout of cluster C<skey>.
+
+
+=head2 feedback_status
+
+B<syntax:> I<ok, err = feedback_status(skey, host, port, failed)>
+
+B<context:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, ngx.timer.E<42>, balancer_by_lua.E<42>>
+
+Mark server C<host:port> in cluster C<skey> as failed(C<true>) or available(C<false>).
+
+Returns C<1> on success, or returns C<nil> and a string describing the error otherwise.
+
+
+=head2 update_upstream
+
+B<syntax:> I<ok, err = update_upstream(skey, upstream)>
+
+B<phase:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, ngx.timer.E<42>>
+
+Update cluster C<skey>. C<upstream> is in the same format as C<cluster> in C<config.lua>.
+
+Returns C<true> on success, or returns C<false> and a string describing the error otherwise.
+
+
+=head2 delete_upstream
+
+B<syntax:> I<ok, err = delete_upstream(skey)>
+
+B<phase:> I<rewrite_by_luaE<42>, access_by_luaE<42>, content_by_luaE<42>, ngx.timer.E<42>>
+
+Delete cluster C<skey> from upstream list.
+
+Returns C<true> on success, or returns C<false> and a string describing the error otherwise.
+
+
+=head1 Copyright and License
+
+The bundle itself is licensed under the 2-clause BSD license.
+
+Copyright (c) 2016, UPYUN(又拍云) Inc.
+
+This module is licensed under the terms of the BSD license.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+
+=over
+
+
+=item *
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+=item *
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+
+=back
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+=head1 See Also
+
+
+=over
+
+
+=item *
+
+L<lua-nginx-module|https://github.com/openresty/lua-nginx-module>
+
+=back
+

@@ -1,0 +1,73 @@
+=encoding utf-8
+
+First of all, I should thank you for your willing to contribute.
+
+If you want to support a new MIME type:
+
+=over
+
+
+=item 1.
+
+Write new Signature.
+
+=item 2.
+
+Don't forget to link it with documation or existed MIME detection code from other project.
+
+=item 3.
+
+Write test for it. If you don't know how to run the test, read the C<.travis.yml>.
+
+=item 4.
+
+Upgrade the version number in C<lib/mime_sniff.lua>. If you add a new kind of Signature, increase minor number by one. Otherwise, increase patch number is just enough.
+
+=item 5.
+
+Squash to one commit and submit a pull request.
+
+
+=back
+
+It's my duty to update the wiki after your pull request is merged.
+
+If you want to fix a bug:
+
+=over
+
+
+=item 1.
+
+Write your bugfix.
+
+=item 2.
+
+Add a test to avoid regression.
+
+=item 3.
+
+Upgrade the patch part of the version number in C<lib/mime_sniff.lua>.
+
+=item 4.
+
+Squash to one commit and submit a pull request.
+
+
+=back
+
+If you want to fix a typo:
+
+=over
+
+
+=item 1.
+
+Fix it.
+
+=item 2.
+
+Squash to one commit and submit a pull request.
+
+=back
+

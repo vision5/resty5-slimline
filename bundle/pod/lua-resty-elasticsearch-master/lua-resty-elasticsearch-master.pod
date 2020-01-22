@@ -1,0 +1,149 @@
+=encoding utf-8
+
+
+=head1 lua-resty-elasticsearch
+
+
+ElasticSearch client for for L<OpenResty|http://openresty.org/> / L<ngx_lua|https://github.com/openresty/lua-nginx-module>.
+
+
+=head1 Requirements
+
+
+L<lua-resty-http|https://github.com/pintsized/lua-resty-http>
+
+
+=head1 API
+
+
+
+=over
+
+
+=item *
+
+L<new>
+
+=item *
+
+L<ping>
+
+=item *
+
+L<info>
+
+=item *
+
+L<search>
+
+
+=back
+
+
+=head2 Synopsis
+
+
+
+    lua_package_path "/path/to/lua-resty-http,lua-resty-elasticsearch/lib/?.lua;;";
+    
+    server {
+        location /test_es {
+            content_by_lua '
+                local cjson = require "cjson"
+                local elasticsearch = require "resty.elasticsearch"
+                local es = elasticsearch:new({"http://localhost:9200"})
+    
+                local data, err = es:info()
+                if not data then
+                    ngx.say("info err: ", err)
+                else
+                    ngx.say(cjson.encode(data))
+                end
+                ngx.say("---------------------------")
+    
+                local body = {query={match_all={}}}
+                local data, err = es:search({doc_type="products"})
+                if not data then
+                    ngx.say("search err: ", err)
+                else
+                    ngx.say(cjson.encode(data))
+                end
+                ngx.say("---------------------------")
+    
+                local data, err = es.cat:health()
+                if not data then
+                    ngx.say("cat health err: ", err)
+                else
+                    ngx.say(data)
+                end
+            ';
+        }
+    }
+
+
+=head2 new
+
+
+C<syntax: es = elasticsearch:new()>
+
+Creates the elasticsearch object. 
+
+
+=head2 ping
+
+
+C<syntax: ok, err = es:ping()>
+
+Returns True if the cluster is up, False otherwise. 
+
+
+=head2 info
+
+
+C<syntax: data, err = es:info()>
+
+Get the basic info from the current cluster. 
+
+
+=head2 search
+
+
+C<syntax: data, err = es:search{index="index", doc_type="user", body={query={match_all={}}}}>
+
+Execute a search query and get back search hits that match the query. 
+
+
+=head1 Copyright and License
+
+
+This module is licensed under the 2-clause BSD license.
+
+Copyright (c) 2015-2016, by bells E<lt>bellszhu@gmail.comE<gt>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+
+=over
+
+
+=item *
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+
+=back
+
+
+=over
+
+
+=item *
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+
+=back
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

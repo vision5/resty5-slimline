@@ -1,0 +1,304 @@
+=encoding utf-8
+
+
+=head1 Changelog
+
+
+All notable changes to C<lua-resty-nettle> will be documented in this file.
+
+
+=head2 [1.1] - 2019-11-29
+
+
+=head3 Fixed
+
+
+=over
+
+
+=item *
+
+Random data used with OpenResty leaked a callback which could have
+resulted C<too many callbacks> error. The function is now casted as
+a proper C function.
+
+
+=back
+
+
+=head2 [1.0] - 2019-10-28
+
+
+=head3 Everything
+
+
+=over
+
+
+=item *
+
+Huge refactoring. A lot of new stuff. From this on, I will keep better changelog, ;-).
+
+
+=back
+
+
+=head2 [0.105] - 2017-09-29
+
+
+=head3 Fixed
+
+
+=over
+
+
+=item *
+
+Hogweed library loading (copy paste bug, sorry)
+
+
+=back
+
+
+=head2 [0.104] - 2017-09-28
+
+
+=head3 Added
+
+
+=over
+
+
+=item *
+
+Option to override library paths with global variables
+(see L<#15|https://github.com/bungle/lua-resty-nettle/pull/15>,
+thanks L<@shashiranjan84|https://github.com/shashiranjan84>)
+
+
+=back
+
+
+=head2 [0.103] - 2017-08-12
+
+
+=head3 Fixed
+
+
+=over
+
+
+=item *
+
+More robust library loaders (they sometimes returned non-helpful booleans)
+(see L<#14|https://github.com/bungle/lua-resty-nettle/issues/14>,
+thanks L<@xiangnanscu|https://github.com/xiangnanscu>)
+
+
+=back
+
+
+=head2 [0.102] - 2017-06-05
+
+
+=head3 Fixed
+
+
+=over
+
+
+=item *
+
+Prefixed Nettle structs to avoid naming conflicts with other
+libraries such as OpenSSL
+(see L<#13|https://github.com/bungle/lua-resty-nettle/issues/13>,
+thanks L<@xiangnanscu|https://github.com/xiangnanscu>)
+
+
+=back
+
+
+=head2 [0.101] - 2017-06-05
+
+
+=head3 Changed
+
+
+=over
+
+
+=item *
+
+Tries to load older dependencies in case the latest are not available
+(no gurantees that they will work, though)
+
+
+=back
+
+
+=head2 [0.100]
+
+
+=head3 Changed
+
+
+=over
+
+
+=item *
+
+Added safeguards on missing ECC curves.
+
+=item *
+
+Automatically calculate, if not provided, RSA a, b, c.
+(see L<#11|https://github.com/bungle/lua-resty-nettle/issues/11>,
+thanks L<@hcaihao|https://github.com/hcaihao>)
+
+=item *
+
+Error messages without ending dot and in lowercase.
+
+
+=back
+
+
+=head2 [0.99]
+
+
+=head3 Added
+
+
+=over
+
+
+=item *
+
+A more robust dynamic library loading.
+(see L<#10|https://github.com/bungle/lua-resty-nettle/issues/10>,
+thanks L<@hcaihao|https://github.com/hcaihao>)
+
+
+=back
+
+
+=head2 [0.98]
+
+
+=head3 Changed
+
+
+=over
+
+
+=item *
+
+No asserts / errors anymore, all the functions return nil, error message
+on errors.
+
+
+=back
+
+
+=head3 Added  
+
+
+=over
+
+
+=item *
+
+Added support for RSA-PSS signing algorithms.
+
+=item *
+
+Added support for ECC.
+
+=item *
+
+Added support for ECDSA.
+
+
+=back
+
+
+=head3 Fixed
+
+
+=over
+
+
+=item *
+
+Base64 padding related fixes.
+
+
+=back
+
+
+=head2 [0.97] 
+
+
+=head3 Added
+
+
+=over
+
+
+=item *
+
+Added RSA signing algorithms (MD5, SHA1, SHA256 and SHA512).
+
+=item *
+
+Added CBC and CTR modes to Twofish.
+
+=item *
+
+Added curve25519.
+
+
+=back
+
+
+=head2 [0.96] - 2016-11-22
+
+
+=head3 Added
+
+
+=over
+
+
+=item *
+
+Support for the official OpenResty package manager (opm).
+
+=item *
+
+Added version.lua file.
+
+=item *
+
+Added version information in lua-resty-nettle.
+
+
+=back
+
+
+=head3 Changed
+
+
+=over
+
+
+=item *
+
+Moved nettle.lua to nettle/library.lua.
+
+=item *
+
+Implemented nettle.lua that autoloads everything.
+
+=back
+

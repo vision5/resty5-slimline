@@ -1,0 +1,31 @@
+#!/usr/bin/env bash 
+
+# NOTE : This file is called by $(MAKE) install
+
+[[ $# -lt 2 ]] && exit 1
+
+SRC_DIR=$1
+INSTALL_DIR=$2
+DESTDIR=$3
+DIR="${DESTDIR}${INSTALL_DIR}"
+LIB_BASE_DIR=$(dirname $INSTALL_DIR)
+
+echo "mkdir -p $DIR"
+mkdir -p "$DIR" || exit 1
+
+echo "cp -fr $SRC_DIR/* $DIR"
+cp -fr "$SRC_DIR"/* "$DIR/" || exit 1
+
+echo "cd \$(DESTDIR)$INSTALL_DIR && rm -fr share"
+cd "$DIR"
+rm -fr share || exit 1
+
+# Replace the paths in text files
+cd "$LIB_BASE_DIR"
+for f in $(find . -type f -exec grep -Iq . {} \; -and -print); do 
+    out=$(cat $f | grep "$SRC_DIR") &> /dev/null
+    [[ "$out" = '' ]] && continue
+    sed -i.bak "s|$SRC_DIR|$INSTALL_DIR|g" $f || exit 1
+    rm -f $f.bak || exit 1
+    echo "[$DIR/${f:2}] : $SRC_DIR => $INSTALL_DIR"
+done
