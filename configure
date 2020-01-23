@@ -2742,7 +2742,7 @@ sub usage_format {
     return $out;
 }
 
-sub usage_bundled_external_libs {
+sub usage_bundled_external_libs () {
     
     my $msg = "Bundled external libs\n\n";
     
@@ -2827,12 +2827,49 @@ sub usage_bundled_external_libs {
     return "$msg";
 }
 
-sub usage_lua_libraries {
+sub usage_debugging () {
     
-    my $msg = "Lua libraries\n\n";
+    my $msg = "Debugging\n\n";
     
-    $msg .= usage_format (<<'_EOC_');
+    $msg .= usage_format (<<'_EOC_');                                     
+  --with-debug                       enable debug logging
+  --with-dtrace-probes               enable dtrace USDT probes
+  --with-dtrace=PATH                 set dtrace utility pathlib
 
+  --dry-run                          dry running the configure, for testing only
+  --stap-nginx-path=PATH             set stap-nginx pathlib
+  --tapset-prefix=PATH               set systemtap tapset directory prefix
+                                     
+_EOC_
+    
+}
+
+sub usage_http_paths () {
+    
+    my $msg = "HTTP paths\n\n";
+    
+    $msg .= usage_format (<<"_EOC_");
+  --http-client-body-temp-path=PATH  set path to store
+                                     http client request body temporary files
+  --http-fastcgi-temp-path=PATH      set path to store
+                                     http fastcgi temporary files
+  --http-log-path=PATH               set http access log pathlib
+  --http-proxy-temp-path=PATH        set path to store
+                                     http proxy temporary files
+  --http-scgi-temp-path=PATH         set path to store
+                                     http scgi temporary files
+  --http-uwsgi-temp-path=PATH        set path to store
+                                     http uwsgi temporary files
+_EOC_
+
+    return $msg;
+}
+
+sub usage_lua_libraries {
+        
+    my $msg = "Lua libraries\n\n";
+        
+    $msg .= usage_format (<<'_EOC_');
   --without-lua_cjson                disable the lua-cjson library
   --without-lua_rds_parser           disable the lua-rds-parser library
   --without-lua_redis_parser         disable the lua-redis-parser library
@@ -2853,9 +2890,9 @@ _EOC_
 }
 
 sub usage_lua_options {
-    
-    my $msg = "Lua options\n\n";
-    
+
+    my $msg = "Lua main options\n\n";
+        
     $msg .= usage_format (<<'_EOC_');
 
   --with-luajit                      enable and build the bundled LuaJIT 2.1 (the default)
@@ -2863,9 +2900,11 @@ sub usage_lua_options {
   --with-luajit-xcflags=FLAGS        Specify extra C compiler flags for LuaJIT 2.1
   --with-luajit-ldflags=FLAGS        Specify extra C linker flags for LuaJIT 2.1
   --without-luajit-lua52             Turns off the LuaJIT extensions from Lua 5.2 that may break
-                                     backward compatibility.
+                                     backward compatibility
   --without-luajit-gc64              Turns off the LuaJIT GC64 mode (which is enabled by default
                                      on x86_64)
+  -jN                                pass -jN option to make while building the bundled
+                                     Lua 5.1 interpreter or LuaJIT 2.1
 _EOC_
 
     return $msg;
@@ -2923,16 +2962,60 @@ sub usage_modules {
     return "$msg\n";
 }
 
-sub usage_other_external_libs {
+
+sub usage_modules_general () {
+
+    my $msg = "Modules\n\n";
     
-    my $msg .= "Other external libs\n\n";
+    $msg .= usage_format (<<"_EOC_");
+  --add-dynamic-module=PATH          enable dynamic external module
+  --add-module=PATH                  enable external module
+  --modules-path=PATH                set modules path
+  --with-compat                      dynamic modules compatibility
+
+_EOC_
+
+    return $msg;
+}
+
+sub usage_other_build_options {
+    
+    my $msg = "Other build options\n\n";
     
     $msg .= usage_format (<<'_EOC_');
 
+  --build=NAME                       set build lib
+  --builddir=DIR                     set the build directory
+  --platform=PLATFORM                forcibly specify a platform lib, for testing only
+
+  --with-cc=PATH                     set C compiler pathlib
+  --with-cc-opt=OPTIONS              set additional C compiler options
+  --with-cpp=PATH                    set C preprocessor pathlib
+  --with-cpu-opt=CPU                 build for the specified CPU, valid values:
+                                     pentium, pentiumpro, pentium3, pentium4,
+                                     athlon, opteron, sparc32, sparc64, ppc64
+  --with-ld-opt=OPTIONS              set additional linker options
+
+  --with-file-aio                    enable file AIO support
+  --with-ipv6                        enable IPv6 support
+  --with-no-pool-patch               enable the no-pool patch for debugging memory issues
+  --with-threads                     enable thread pool support
+_EOC_
+
+    return $msg;
+}
+
+sub usage_other_external_libs {
+    
+    my $msg = "Other external libs\n\n";
+    
+    $msg .= usage_format (<<'_EOC_');
   --with-libatomic                   force libatomic_ops library usage
   --with-libatomic=DIR               set path to libatomic_ops library sources
   --with-libdrizzle=DIR              specify the libdrizzle 1.0 (or drizzle) installation prefix
   --with-libpq=DIR                   specify the libpq (or postgresql) installation prefix
+  --with-perl=PATH                   set perl binary pathlib
+  --with-perl_modules_path=PATH      set Perl modules path
   --with-pg_config=PATH              specify the path of the pg_config utility
 
 _EOC_
@@ -2940,85 +3023,44 @@ _EOC_
     return $msg;
 }
 
-sub usage_top {
+sub usage_other_run_options () {
     
-    my $msg = usage_format (<<"_EOC_");
+    my $msg = "Other run options\n\n";
     
-  --help                             this message
+    $msg .= usage_format (<<'_EOC_');
+  --group=GROUP                      set non-privileged group for
+                                     worker process
+  --user=USER                        set non-privileged user for
+                                     worker processes
 
-  --prefix=PATH                      set the installation prefix (default to $prefix)
-
-  --with-debug                       enable debug logging
-  --with-dtrace-probes               enable dtrace USDT probes
-  --with-dtrace=PATH                 set dtrace utility pathlib
-
-  --with-no-pool-patch               enable the no-pool patch for debugging memory issues
-
-  -jN                                pass -jN option to make while building the bundled
-                                     Lua 5.1 interpreter or LuaJIT 2.1
 _EOC_
 
     return $msg;
 }
 
-sub usage_bottom {
+sub usage_startup_paths () {
+
+    my $msg = "Startup paths\n\n";
     
-    my $msg = "Other Nginx options\n\n";
-
-    $msg .= usage_format (<<'_EOC_');
-
-  --sbin-path=PATH                   set nginx binary pathlib
-  --modules-path=PATH                set modules path
+    $msg .= usage_format (<<"_EOC_");
   --conf-path=PATH                   set nginx.conf pathlib
   --error-log-path=PATH              set error log pathlib
-  --pid-path=PATH                    set nginx.pid pathlib
   --lock-path=PATH                   set nginx.lock pathlib
-  --tapset-prefix=PATH               set systemtap tapset directory prefix
-  --stap-nginx-path=PATH             set stap-nginx pathlib
+  --pid-path=PATH                    set nginx.pid pathlib
+  --sbin-path=PATH                   set nginx binary pathlib
+                         
+_EOC_
 
-  --user=USER                        set non-privileged user for
-                                     worker processes
-  --group=GROUP                      set non-privileged group for
-                                     worker processes
+    return $msg;
+}
 
-  --build=NAME                       set build lib
-  --builddir=DIR                     set the build directory
-
-  --with-threads                     enable thread pool support
-
-  --with-file-aio                    enable file AIO support
-  --with-ipv6                        enable IPv6 support
-
-  --with-perl=PATH                   set perl binary pathlib
-  --with-perl_modules_path=PATH      set Perl modules path
-
-  --http-log-path=PATH               set http access log pathlib
-  --http-client-body-temp-path=PATH  set path to store
-                                     http client request body temporary files
-  --http-proxy-temp-path=PATH        set path to store
-                                     http proxy temporary files
-  --http-fastcgi-temp-path=PATH      set path to store
-                                     http fastcgi temporary files
-  --http-uwsgi-temp-path=PATH        set path to store
-                                     http uwsgi temporary files
-  --http-scgi-temp-path=PATH         set path to store
-                                     http scgi temporary files
-
-  --add-module=PATH                  enable external module
-  --add-dynamic-module=PATH          enable dynamic external module
-
-  --with-compat                      dynamic modules compatibility
-
-  --with-cc=PATH                     set C compiler pathlib
-  --with-cpp=PATH                    set C preprocessor pathlib
-  --with-cc-opt=OPTIONS              set additional C compiler options
-  --with-ld-opt=OPTIONS              set additional linker options
-  --with-cpu-opt=CPU                 build for the specified CPU, valid values:
-                                     pentium, pentiumpro, pentium3, pentium4,
-                                     athlon, opteron, sparc32, sparc64, ppc64
-
-  --dry-run                          dry running the configure, for testing only
-  --platform=PLATFORM                forcibly specify a platform lib, for testing only
+sub usage_top () {
+    
+    my $msg = "\n";
+    $msg .= usage_format (<<"_EOC_");
+  --help                             this message
+  --prefix=PATH                      set the installation prefix (default to $prefix)
+  
 _EOC_
 
     return $msg;
@@ -3030,6 +3072,10 @@ sub usage ($) {
 
     my $msg = usage_top;
     
+    $msg .= usage_startup_paths;
+    $msg .= usage_http_paths;
+    $msg .= usage_modules_general;
+    
     $msg .= usage_modules "HTTP modules", \@with_http_modules, \@without_http_modules, 'http';
     $msg .= usage_modules "Mail modules", \@with_mail_modules, \@without_mail_modules, 'mail';
     $msg .= usage_modules "Stream modules", \@with_stream_modules, \@without_stream_modules, 'stream';
@@ -3039,7 +3085,9 @@ sub usage ($) {
     $msg .= usage_lua_libraries;
     $msg .= usage_bundled_external_libs;
     $msg .= usage_other_external_libs;
-    $msg .= usage_bottom;
+    $msg .= usage_other_build_options;
+    $msg .= usage_other_run_options;
+    $msg .= usage_debugging;
 
     if ($retval == 0) {
         print $msg;
